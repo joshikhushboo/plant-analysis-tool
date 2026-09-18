@@ -667,18 +667,15 @@ setTimeout(() => {
     ========================= */}
     <section className="hero" id="home">
 
-      <video
-        className="hero-video"
-        autoPlay
-        muted
-        loop
-        playsInline
-      >
-        <source
-          src="/src/assets/video.mp4"
-          type="video/mp4"
-        />
-      </video>
+     <video
+  className="hero-video"
+  autoPlay
+  muted
+  loop
+  playsInline
+>
+  <source src={heroVideo} type="video/mp4" />
+</video>
 
       <div className="hero-overlay"></div>
 
