@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useLogin, usePrivy } from "@privy-io/react-auth";
 import "@fortawesome/fontawesome-free/css/all.min.css";
-import "./App.css";
+import heroVideo from "./assets/video.mp4";
 
+import "./App.css";
+const API_URL = import.meta.env.VITE_API_URL;
 const fetchUserHistory = async (token) => {
-  const response = await fetch("http://localhost:5000/history", {
+  const response = await fetch(`http://${API_URL}/history`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -217,8 +219,8 @@ const handleAuth = async (formData) => {
 
     const endpoint =
       authMode === "login"
-        ? "http://localhost:5000/auth/login"
-        : "http://localhost:5000/auth/signup";
+        ? `http://${API_URL}/auth/login`
+        : `http://${API_URL}/auth/signup`;
 
     const response = await fetch(endpoint, {
       method: "POST",
@@ -289,7 +291,7 @@ const deleteHistoryItem = async (historyId) => {
   try {
     const token = localStorage.getItem("plantScanToken");
     const response = await fetch(
-      `http://localhost:5000/history/${historyId}`,
+      `http://${API_URL}/history/${historyId}`,
       {
         method: "DELETE",
         headers: {
@@ -375,7 +377,7 @@ const deleteHistoryItem = async (historyId) => {
       const token = localStorage.getItem("plantScanToken");
 
 const response = await fetch(
-  "http://localhost:5000/analyze",
+  `http://${API_URL}/analyze`,
   {
     method: "POST",
     headers: {
@@ -489,7 +491,7 @@ setTimeout(() => {
 
     try {
       const response = await fetch(
-        "http://localhost:5000/download",
+        `http://${API_URL}/download`,
         {
           method: "POST",
           headers: {
