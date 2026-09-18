@@ -376,9 +376,7 @@ const deleteHistoryItem = async (historyId) => {
 
       const token = localStorage.getItem("plantScanToken");
 
-const response = await fetch(
-  `http://${API_URL}/analyze`,
-  {
+const response = await fetch(`${API_URL}/analyze`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
