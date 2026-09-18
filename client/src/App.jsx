@@ -6,7 +6,7 @@ import heroVideo from "./assets/video.mp4";
 import "./App.css";
 const API_URL = import.meta.env.VITE_API_URL;
 const fetchUserHistory = async (token) => {
-  const response = await fetch(`http://${API_URL}/history`, {
+  const response = await fetch(`${API_URL}/history`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -290,9 +290,9 @@ const handleLogout = async () => {
 const deleteHistoryItem = async (historyId) => {
   try {
     const token = localStorage.getItem("plantScanToken");
-    const response = await fetch(
-      `http://${API_URL}/history/${historyId}`,
-      {
+    const response =await fetch(
+  `${API_URL}/history/${historyId}`,
+  {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -488,9 +488,7 @@ setTimeout(() => {
     }
 
     try {
-      const response = await fetch(
-        `http://${API_URL}/download`,
-        {
+      const response = await fetch(`${API_URL}/download`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
