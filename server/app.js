@@ -109,7 +109,62 @@ const upload = multer({
 const genAI = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
+// ===============================
+// GEMINI RETRY HELPER
+// ===============================
 
+async function generateGeminiContentWithRetry(request, maxRetries = 3) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(
+        `Gemini attempt ${attempt}/${maxRetries}`
+      );
+
+      const response =
+        await genAI.models.generateContent(request);
+
+      return response;
+    } catch (error) {
+      lastError = error;
+
+      const status = error?.status || error?.error?.code;
+
+      const isRetryable =
+        status === 503 ||
+        status === 429 ||
+        status === 500;
+
+      console.error(
+        `Gemini attempt ${attempt} failed:`,
+        error?.message || error
+      );
+
+      // Don't retry errors that are unlikely to succeed
+      // by simply trying again.
+      if (!isRetryable || attempt === maxRetries) {
+        throw error;
+      }
+
+      // Exponential backoff:
+      // 1st retry → 1.5 sec
+      // 2nd retry → 3 sec
+      // 3rd retry → 6 sec
+      const delay = 1500 * Math.pow(2, attempt - 1);
+
+      console.log(
+        `Gemini temporarily unavailable. Retrying in ${delay}ms...`
+      );
+
+      await new Promise((resolve) =>
+        setTimeout(resolve, delay)
+      );
+    }
+  }
+
+  throw lastError;
+}
 // ===============================
 // HOME
 // ===============================
@@ -277,9 +332,7 @@ app.post("/auth/login", async (req, res) => {
 // ANALYZE PLANT
 // ===============================
 
-// ===============================
-// ANALYZE PLANT
-// ===============================
+
 
 app.post(
   "/analyze",
@@ -376,7 +429,8 @@ Instructions:
 15. If the image is unclear, lower the confidence rather than guessing with certainty.
 `;
 
-      const response = await genAI.models.generateContent({
+      const response =
+  await generateGeminiContentWithRetry({
         model: "gemini-2.5-flash",
         contents: [
           {
