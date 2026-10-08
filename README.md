@@ -4,7 +4,7 @@ PlantScan is a full-stack AI-powered web application that identifies plants from
 
 Users can upload a plant image and receive an AI-generated analysis including plant identification, confidence score, health status, visible symptoms, watering requirements, sunlight needs, soil recommendations, and more.
 
-🔗 **Live Demo:** https://plant-analysis-tool-lsn4lxb4u-joshikhushboos-projects.vercel.app/
+🔗 **Live Demo:** https://plant-analysis-tool-five.vercel.app/
 
 ---
 
