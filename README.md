@@ -186,6 +186,8 @@ Create `server/.env`:
 GEMINI_API_KEY=your_gemini_api_key
 MONGODB_URL=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret
+PRIVY_APP_ID=your_privy_app_id
+PRIVY_APP_SECRET=your_privy_app_secret
 ```
 
 > Never commit `.env` files or API keys to GitHub.

@@ -13,6 +13,8 @@ const { GoogleGenAI } = require("@google/genai");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const { PrivyClient } = require("@privy-io/server-auth");
 const User = require("./models/User");
 const PlantAnalysis = require("./models/PlantAnalysis");
 const authMiddleware =
@@ -24,6 +26,22 @@ const {
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+let privyClient;
+
+const getPrivyClient = () => {
+  if (!process.env.PRIVY_APP_ID || !process.env.PRIVY_APP_SECRET) {
+    throw new Error("PRIVY_APP_ID and PRIVY_APP_SECRET must be configured.");
+  }
+
+  if (!privyClient) {
+    privyClient = new PrivyClient(
+      process.env.PRIVY_APP_ID,
+      process.env.PRIVY_APP_SECRET
+    );
+  }
+
+  return privyClient;
+};
 // ===============================
 // MONGODB
 // ===============================
@@ -325,6 +343,116 @@ app.post("/auth/login", async (req, res) => {
     res.status(500).json({
       success: false,
       error: "Login failed.",
+    });
+  }
+});
+
+// ===============================
+// GOOGLE / PRIVY LOGIN
+// ===============================
+
+console.log("🔥 GOOGLE AUTH ROUTE REGISTERED");
+
+app.post("/auth/google", async (req, res) => {
+  console.log("🔥 /auth/google HIT");
+  const authorization = req.headers.authorization;
+  if (!authorization?.startsWith("Bearer ")) {
+    return res.status(401).json({
+      success: false,
+      error: "A valid Privy access token is required.",
+    });
+  }
+
+  let verifiedUserId;
+  try {
+    const claims = await getPrivyClient().verifyAuthToken(
+      authorization.slice("Bearer ".length)
+    );
+    verifiedUserId = claims.userId;
+  } catch (error) {
+    console.error("Privy token verification failed:", error.message);
+    return res.status(401).json({
+      success: false,
+      error: "Invalid or expired Privy access token.",
+    });
+  }
+
+  try {
+    const privyUser = await getPrivyClient().getUser(verifiedUserId);
+    const googleAccount = privyUser.linkedAccounts?.find(
+      (account) => account.type === "google_oauth"
+    );
+
+    if (!googleAccount) {
+      return res.status(403).json({
+        success: false,
+        error: "A Google-authenticated Privy account is required.",
+      });
+    }
+
+    const email = (
+      privyUser.email?.address ||
+      (typeof privyUser.email === "string" ? privyUser.email : "") ||
+      googleAccount?.email
+    )?.trim().toLowerCase();
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: "The authenticated Google account has no email address.",
+      });
+    }
+
+    const name =
+      googleAccount?.name ||
+      privyUser.google?.name ||
+      privyUser.name ||
+      email.split("@")[0];
+    let user = await User.findOne({
+      email,
+    });
+
+    if (!user) {
+      const placeholderPassword = await bcrypt.hash(
+        crypto.randomBytes(32).toString("hex"),
+        10
+      );
+
+      user = await User.create({
+        name,
+        email,
+        password: placeholderPassword,
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        userId: user._id,
+        name: user.name,
+        email: user.email,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "7d",
+      }
+    );
+
+    return res.json({
+      success: true,
+      message: "Google login successful.",
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    console.error("Google auth error:", error);
+
+    return res.status(500).json({
+      success: false,
+      error: "Google authentication failed.",
     });
   }
 });

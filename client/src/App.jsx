@@ -26,38 +26,33 @@ const fetchUserHistory = async (token) => {
 };
 
 function App() {
- const { login } = useLogin({
-  onComplete: ({ user: loggedInUser, loginMethod }) => {
-    console.log("Privy login successful:", loggedInUser);
-    console.log("Login method:", loginMethod);
+  const { login } = useLogin({
+    onComplete: async ({ user: loggedInUser }) => {
+      try {
+        await syncPrivySession(loggedInUser);
+        setShowAuth(false);
+        setError("");
+      } catch (loginError) {
+        console.error("Privy login sync failed:", loginError);
+        setError(
+          loginError.message || "Google login failed. Please try again."
+        );
+      }
+    },
 
-    // Use the Privy user in the PlantScan UI
-    if (loggedInUser) {
-      setUser({
-        name:
-          loggedInUser.google?.name ||
-          loggedInUser.email?.address ||
-          "PlantScan User",
-        email: loggedInUser.email?.address || "",
-      });
-    }
+    onError: (error) => {
+      console.error("Privy login failed:", error);
+      setError("Google login failed. Please try again.");
+    },
+  });
 
-    setShowAuth(false);
-    setError("");
-  },
-
-  onError: (error) => {
-    console.error("Privy login failed:", error);
-    setError("Google login failed. Please try again.");
-  },
-});
-
-const {
-  ready,
-  authenticated,
-  user: privyUser,
-  logout: privyLogout,
-} = usePrivy();
+  const {
+    ready,
+    authenticated,
+    user: privyUser,
+    getAccessToken,
+    logout: privyLogout,
+  } = usePrivy();
 
 
 
@@ -89,6 +84,43 @@ const {
     return [];
   });
 
+  const syncPrivySession = async (loggedInUser) => {
+    if (!loggedInUser) {
+      throw new Error("Google login did not return an authenticated user.");
+    }
+
+    const privyAccessToken = await getAccessToken();
+    if (!privyAccessToken) {
+      throw new Error("Could not retrieve the Privy access token.");
+    }
+
+    const response = await fetch(`${API_URL}/auth/google`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${privyAccessToken}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Google login failed.");
+    }
+
+    localStorage.setItem("plantScanToken", data.token);
+    localStorage.setItem("plantScanUser", JSON.stringify(data.user));
+
+    try {
+      const userHistory = await fetchUserHistory(data.token);
+      setHistory(userHistory);
+    } catch (historyError) {
+      console.error("History load after Google login failed:", historyError);
+      setHistory([]);
+    }
+
+    setUser(data.user);
+  };
+
   const scrollToSection = (id) => {
     setMobileMenuOpen(false);
 
@@ -109,20 +141,17 @@ const {
   }
 
   if (authenticated && privyUser) {
-    console.log("Privy user is already authenticated.");
-
-    setUser({
-      name:
-        privyUser.google?.name ||
-        privyUser.email?.address ||
-        "PlantScan User",
-      email: privyUser.email?.address || "",
-    });
-
-    setShowAuth(false);
-    setError("");
-
-    return;
+    try {
+      console.log("Privy user is already authenticated.");
+      await syncPrivySession(privyUser);
+      setShowAuth(false);
+      setError("");
+      return;
+    } catch (error) {
+      console.error("Google login sync failed:", error);
+      setError(error.message || "Google login failed. Please try again.");
+      return;
+    }
   }
 
   try {
@@ -217,10 +246,10 @@ const handleAuth = async (formData) => {
     setError("");
     setAuthLoading(true);
 
-    const endpoint =
-      authMode === "login"
-        ? `http://${API_URL}/auth/login`
-        : `http://${API_URL}/auth/signup`;
+   const endpoint =
+  authMode === "login"
+    ? `${API_URL}/auth/login`
+    : `${API_URL}/auth/signup`;
 
     const response = await fetch(endpoint, {
       method: "POST",
